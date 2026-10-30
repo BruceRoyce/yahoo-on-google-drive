@@ -1,5 +1,21 @@
 # Yahoo evidence archive
 
+![alt text](<public/Screenshot 2026-10-30 194915.png>)
+
+## Technical decisions
+
+- IMAP: imapflow, using Yahoo's IMAP server on port 993 with TLS.
+- Email parsing: mailparser, preserving the raw RFC 822 message separately.
+- Index: SQLite with full-text search, including dates, sender, recipients, subject, message body and attachment metadata.
+- Incremental synchronisation: Track folder UIDs and UIDVALIDITY so subsequent runs do not download the same messages unnecessarily.
+- Evidence preservation: SHA-256 hashes of originals, original headers, no rewriting of downloaded messages.
+- Google Drive: OAuth 2.0 using Google's Node.js API client, with uploads restricted to a designated folder.
+- Safety: No SMTP, no message deletion, moving or flag modification. Credentials stay locally in protected configuration and must never be committed to Git.
+
+Yahoo officially supports IMAP access and app-password authentication.
+
+Google also documents OAuth authentication and uploading files from Node.js. (or Bun.js in our specific case)
+
 A local-only TypeScript/Bun CLI for archiving Yahoo Mail and selecting evidence.
 Original RFC 822 bytes are stored separately from searchable text and decoded
 attachments. SQLite uses Bun's native `bun:sqlite` with FTS5. No HTTP service
