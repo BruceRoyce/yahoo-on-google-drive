@@ -202,10 +202,23 @@ files. Hash manifests detect changes but are not signed or independently dated;
 this provides application-level immutability, not WORM storage or proof of an
 email's authenticity. Maintain a separate record of collection and handling.
 
-Only one CLI command may hold `.writer.lock`. After a crash, confirm that no
-archive command/process is running before manually removing that lock file.
-Never remove it while a writer is active. Do not run from a network filesystem
-or cloud-sync folder. Working directories and backups contain sensitive evidence.
+Only one CLI command may hold the OS-backed SQLite writer lock in
+`.writer.sqlite`. Windows releases it automatically when the owning process
+exits or is killed. The file remains on disk; its existence does **not** mean
+the archive is locked. Never delete or replace `.writer.sqlite` to unlock it,
+because that could allow two writers to run simultaneously.
+
+`ARCHIVE_LOCKED` means another command holds the lock, or an old-version
+`.writer.lock` marker names a process that still exists. Wait for that command
+to finish. Old `.writer.lock` markers are automatically removed only when their
+PID is demonstrably dead. An inaccessible or reused PID is not reclaimed.
+`LEGACY_LOCK_INVALID` means the old marker is malformed; confirm that no archive
+command is running, then remove **only** `.writer.lock` from `ARCHIVE_DIR`.
+`ARCHIVE_LOCK_IO_ERROR` indicates a filesystem/permissions problem, rather than
+an active writer. No archive evidence is removed during lock recovery.
+
+Do not run from a network filesystem or cloud-sync folder. Working directories
+and backups contain sensitive evidence.
 
 ## Development and security
 

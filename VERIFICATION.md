@@ -55,3 +55,16 @@ inclusive midnight, Inbox/Sent/custom folder coverage, incremental new messages,
 CLI and environment boundary confirmation, remembered policy against backward
 configuration edits, dry-run policy isolation, v1-to-v2 migration, and retention
 of previously archived out-of-range messages. No real account access occurred.
+
+## Writer lock recovery revision
+
+Replaced the exclusive-create JSON marker with an OS-backed exclusive SQLite
+transaction in a separate `.writer.sqlite` database. The lock database is never
+deleted on release; process termination releases its lock automatically. Legacy
+markers are retired only for demonstrably dead PIDs, under the new lock.
+Filesystem failures are distinguished from lock contention.
+
+`bun run check`: passed on Windows/Bun 1.4.0: 29 offline tests, 153 assertions,
+plus strict typing. Added actual child-process contention/termination recovery,
+persistent file reuse, live/dead legacy marker handling, malformed marker
+preservation, filesystem-error classification, and action-failure cleanup.

@@ -102,4 +102,10 @@ async function confirmation(phrase:string,description:string):Promise<boolean> {
   const terminal=createInterface({input:process.stdin,output:process.stdout});
   try { return await terminal.question(`Type exactly: ${phrase}\n> `)===phrase; } finally { terminal.close(); }
 }
-if (import.meta.main) main().catch(e => { log(e instanceof AppError ? e.code : 'OPERATION_FAILED'); process.exitCode = 1; });
+if (import.meta.main) main().catch(e => {
+  log(e instanceof AppError ? e.code : 'OPERATION_FAILED');
+  if (e instanceof AppError && e.code === 'ARCHIVE_LOCKED') console.error('Another archive command is running, or a legacy lock names a live process. Wait for it to finish.');
+  if (e instanceof AppError && e.code === 'ARCHIVE_LOCK_IO_ERROR') console.error('Cannot open the archive writer lock. Check the archive directory permissions and disk availability.');
+  if (e instanceof AppError && e.code === 'LEGACY_LOCK_INVALID') console.error('The old .writer.lock marker is invalid. See the README recovery instructions before removing it.');
+  process.exitCode = 1;
+});

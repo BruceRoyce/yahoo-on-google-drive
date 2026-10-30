@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, open, link, unlink, chmod, lstat, realpath } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
+import { Database } from 'bun:sqlite';
 
 export class AppError extends Error {
   constructor(public readonly code: string) { super(code); this.name = 'AppError'; }
@@ -63,14 +64,54 @@ export async function readVerified(root: string, path: string, expected: string)
 
 export async function withWriter<T>(root: string, action: () => Promise<T>): Promise<T> {
   await mkdir(root, { recursive: true, mode: 0o700 });
-  const path = await safePath(root, '.writer.lock');
-  let file;
-  try { file = await open(path, 'wx', 0o600); }
-  catch { throw new AppError('ARCHIVE_LOCKED'); }
+  const path = await safePath(root, '.writer.sqlite');
+  for (const suffix of ['-journal','-wal','-shm']) await safePath(root, `.writer.sqlite${suffix}`);
+  let lock: Database | undefined;
   try {
-    await file.writeFile(JSON.stringify({ pid: process.pid, created: new Date().toISOString() }));
+    lock = new Database(path, { create: true, strict: true });
+    // Separate from index.sqlite: hold the OS-backed lock across the async action
+    // without blocking the index's own transactions. Process death releases it.
+    lock.exec('PRAGMA busy_timeout=0; BEGIN EXCLUSIVE;');
+  } catch (e) {
+    lock?.close();
+    const code = (e as { code?: string }).code;
+    if (code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED') throw new AppError('ARCHIVE_LOCKED');
+    throw new AppError('ARCHIVE_LOCK_IO_ERROR');
+  }
+  try {
+    await retireLegacyLock(root);
     return await action();
-  } finally { await file.close(); await unlink(path); }
+  } finally {
+    // Do not delete the SQLite lock file: replacing it could create two distinct
+    // OS locks for concurrent processes. Only release this connection's lock.
+    try { lock.exec('ROLLBACK;'); } finally { lock.close(); }
+  }
+}
+
+async function retireLegacyLock(root: string): Promise<void> {
+  const path = await safePath(root, '.writer.lock');
+  let bytes: Buffer;
+  try { bytes = await readFile(path); }
+  catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return; throw new AppError('ARCHIVE_LOCK_IO_ERROR'); }
+  let pid: number;
+  try {
+    const value = JSON.parse(bytes.toString()) as { pid?: unknown };
+    if (typeof value.pid !== 'number' || !Number.isSafeInteger(value.pid) || value.pid <= 0) throw new Error();
+    pid = value.pid;
+  } catch { throw new AppError('LEGACY_LOCK_INVALID'); }
+  try {
+    process.kill(pid, 0); // Existence check only; never terminate the process.
+    throw new AppError('ARCHIVE_LOCKED');
+  } catch (e) {
+    // Reclaim only a demonstrably dead owner, never an inaccessible or reused PID.
+    if ((e as NodeJS.ErrnoException).code !== 'ESRCH') {
+      if (e instanceof AppError) throw e;
+      throw new AppError('ARCHIVE_LOCKED');
+    }
+  }
+  // All new-version reclamation is serialized by the SQLite lock above.
+  if (!(await readFile(path)).equals(bytes)) throw new AppError('ARCHIVE_LOCKED');
+  await unlink(path);
 }
 
 export class RateLimit {

@@ -9,7 +9,10 @@ exports, and optional Drive upload. Tests use synthetic correspondence and servi
 `src/` implementation; `tests/` offline tests and synthetic fixtures.
 `data/index.sqlite` metadata and FTS5; `data/objects/` content-addressed originals;
 `data/attachments/` decoded attachment derivatives; `data/collections/` completed
-exports; `data/private/` local OAuth tokens; `data/.writer.lock` single-writer lock.
+exports; `data/private/` local OAuth tokens; `data/.writer.sqlite` OS-backed
+single-writer lock held by an exclusive SQLite transaction on a separate database.
+Process exit releases the lock without requiring deletion of the persistent file.
+Legacy `.writer.lock` markers are reclaimed under this lock only for dead PIDs.
 
 ## Schema
 
