@@ -1,0 +1,31 @@
+{
+  "name": "yahoo-evidence-archive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "scripts": {
+    "mail:folders": "bun src/cli.ts folders",
+    "mail:sync": "bun src/cli.ts sync",
+    "mail:search": "bun src/cli.ts search",
+    "mail:export": "bun src/cli.ts export",
+    "mail:verify": "bun src/cli.ts verify",
+    "mail:drive-connect": "bun src/cli.ts drive-connect",
+    "mail:drive-upload": "bun src/cli.ts drive-upload",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun test",
+    "mail:drive-folder": "bun src/cli.ts drive-folder"
+  },
+  "dependencies": {
+    "imapflow": "2.10.0",
+    "mailparser": "3.14.1"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "@types/mailparser": "3.9.0",
+    "typescript": "7.0.2"
+  }
+}
