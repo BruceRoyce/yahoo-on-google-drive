@@ -66,4 +66,4 @@ ordinary progress/error logs use fixed event names and numeric counts only.
 
 Complete and test the local system before implementing Drive. Drive accepts only
 explicit, verified collections, uses the drive.file OAuth scope, requires typed
-confirmation for each upload, and never selects correspondence automatically.
+confirmation unless the caller supplies `--yes`, and never selects correspondence automatically.

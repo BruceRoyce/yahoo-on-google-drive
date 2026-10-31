@@ -105,6 +105,9 @@ bun mail:search --query "water ingress"
 bun mail:search --address "landlord@example.com" --since 2024-09-01 --until 2025-01-01
 bun mail:search --subject "repair" --limit 100 --offset 0
 bun mail:export --case beaconsfield --ids 1,3,7
+bun mail:search --query "water ingress" --output water-ingress
+# Use the actual path printed by search:
+bun mail:export --case beaconsfield --json "searches/water-ingress_2026_10_31__01_15_32.json"
 ```
 
 Search outputs JSON including local IDs and source memberships. Query terms are
@@ -115,7 +118,22 @@ other fields but are excluded from date filters. Search is paginated (default
 100; maximum 10,000); use `--offset` to see more. Output contains private data;
 do not redirect it to a public location or include it in issue reports.
 
-Exports require explicit numeric IDs; there is no automatic whole-mailbox export.
+`--output NAME` saves the search's JSON array under `searches/` in the current
+working directory and prints the full saved path instead of the results. Supply
+a filename stem (an optional `.json` extension is accepted), not a path. Names
+gain a UTC timestamp to the second, for example
+`water-ingress_2026_10_31__01_15_32.json`. An existing file with different contents
+is never overwritten if the same name is used within the same second. Windows does not allow colons
+in filenames. Saved searches are ignored by Git and contain private message data.
+The saved results respect the same filters, `--limit` and `--offset` as terminal
+output: the default is still 100 results, with a maximum of 10,000 per page.
+
+Exports accept either explicit numeric `--ids` or `--json PATH` pointing to a
+saved search, never both. JSON paths can be relative to the current working
+directory or absolute. Export extracts and deduplicates the numeric IDs; empty
+results, malformed JSON, invalid IDs, and IDs absent from the current archive
+are rejected. A saved search is a snapshot of the results, not a query rerun;
+use it with the same local archive that produced it. There is no automatic whole-mailbox export.
 The printed collection path under `data/collections/<case>/<collection>/` contains:
 
 - `originals/`: byte-exact `.eml` evidence.
@@ -161,14 +179,16 @@ only to an encrypted destination, or reconnect after restoring an archive.
 
 The only scope is `drive.file`: access to files created by or explicitly opened
 with this app. The folder command creates a new app-accessible private folder
-and asks for typed confirmation. An arbitrary existing folder ID may be
+and asks for typed confirmation unless `--yes` is supplied. An arbitrary existing folder ID may be
 inaccessible under this scope; use an app-created folder. No broader Drive scope
 is requested, and no files or permissions are shared by the application. Avoid
 destinations with inherited sharing; this app does not audit parent permissions.
 
-Every upload requires an exact case, exact completed collection name, and a fresh
-typed confirmation naming the destination. There is no `--yes` bypass or latest
-collection default. Review local `index.json`/Markdown before confirming. Only
+Every upload requires an exact case and exact completed collection name. By default,
+typed confirmation names the destination. Supply `--yes` to authorize the operation
+without an interactive prompt (also supported by `mail:drive-folder`). For example:
+`bun mail:drive-upload --case beaconsfield --collection <printed-collection-name> --yes`.
+There is no latest collection default. Review local `index.json`/Markdown before uploading. Only
 manifest-listed payloads plus the manifest and checksum are uploaded; unrelated
 mail and extra local files are excluded. Dry-run performs local verification
 without reading OAuth tokens, contacting Google, or creating a cloud folder.
